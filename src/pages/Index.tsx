@@ -174,14 +174,26 @@ const Index = () => {
   };
 
   const [chat, setChat] = useState([
-    { from: 'bot', text: 'Привет! Я Юра — помощник для новичков. Спроси меня о чём угодно 🚀' },
+    { from: 'bot', text: 'Привет! Добро пожаловать в GreenTeam_2.0 🌿\n\nЯ помогу тебе быстро освоиться. Выбери тему или напиши вопрос!' },
   ]);
   const [msg, setMsg] = useState('');
 
-  const send = () => {
-    if (!msg.trim()) return;
-    setChat((c) => [...c, { from: 'me', text: msg }, { from: 'bot', text: 'Отличный вопрос! В первой версии я пока учусь — скоро отвечу по-настоящему.' }]);
-    setMsg('');
+  const quickReplies = [
+    { label: '📋 Регламенты и доступы', answer: 'Все регламенты и доступы находятся в разделе «Сервисы». Там собраны ссылки на Notion, корпоративную почту и Telegram-канал.' },
+    { label: '📣 Telegram-канал', answer: 'Наш корпоративный Telegram-бот: @green_team_2_0_bot\n\nПерейди по ссылке и нажми /start — бот расскажет всё о компании и добавит тебя в нужные чаты.' },
+    { label: '👤 Контакты HR', answer: 'По любым вопросам адаптации пиши напрямую HR-команде в Telegram-бот: @green_team_2_0_bot\n\nМы всегда на связи!' },
+    { label: '🎂 Дни рождения', answer: 'Дни рождения коллег видны в Календаре (боковая панель). Бот сам поздравляет именинников в день рождения — ничего делать не нужно!' },
+  ];
+
+  const send = (text?: string) => {
+    const userText = text ?? msg;
+    if (!userText.trim()) return;
+    const quick = quickReplies.find((q) => q.label === userText);
+    const botReply = quick
+      ? quick.answer
+      : `Хороший вопрос! Для детального ответа обратись к боту: @green_team_2_0_bot — там найдёшь всё о компании 🌿`;
+    setChat((c) => [...c, { from: 'me', text: userText }, { from: 'bot', text: botReply }]);
+    if (!text) setMsg('');
   };
 
   return (
@@ -637,19 +649,55 @@ const Index = () => {
           <Card className="p-6 rounded-3xl border-border bg-card overflow-hidden">
             <div className="flex items-center gap-3 mb-4">
               <img src={BOT_IMG} alt="Бот" className="w-12 h-12 rounded-2xl object-cover" />
-              <div><div className="font-display font-semibold">Помощник новичка</div><div className="text-xs text-secondary flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-secondary" /> онлайн</div></div>
+              <div className="flex-1 min-w-0">
+                <div className="font-display font-semibold">Помощник новичка</div>
+                <div className="text-xs text-secondary flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-secondary" /> онлайн</div>
+              </div>
+              <a href="https://t.me/green_team_2_0_bot" target="_blank" rel="noreferrer"
+                className="shrink-0 flex items-center gap-1.5 text-xs font-medium bg-secondary/15 text-secondary rounded-full px-3 py-1.5 hover:bg-secondary/25 transition-colors">
+                <Icon name="Send" size={12} /> @green_team_2_0_bot
+              </a>
             </div>
+
+            {/* Приветственный баннер */}
+            <a href="https://t.me/green_team_2_0_bot" target="_blank" rel="noreferrer" className="block mb-4 rounded-2xl overflow-hidden hover:opacity-90 transition-opacity">
+              <img
+                src="https://cdn.poehali.dev/projects/75c7bfbb-449a-496c-8281-98107283b3f9/bucket/23afddee-becb-4deb-9040-eb547f906bb5.jpg"
+                alt="Добро пожаловать в GreenTeam"
+                className="w-full object-cover"
+                style={{ maxHeight: '120px' }}
+              />
+            </a>
+
             <div className="space-y-2.5 max-h-52 overflow-y-auto mb-3 pr-1">
               {chat.map((c, i) => (
                 <div key={i} className={`flex ${c.from === 'me' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] text-sm px-3.5 py-2.5 rounded-2xl ${c.from === 'me' ? 'bg-primary text-primary-foreground rounded-br-md' : 'bg-muted text-foreground rounded-bl-md'}`}>{c.text}</div>
+                  <div className={`max-w-[85%] text-sm px-3.5 py-2.5 rounded-2xl whitespace-pre-line ${c.from === 'me' ? 'bg-primary text-primary-foreground rounded-br-md' : 'bg-muted text-foreground rounded-bl-md'}`}>{c.text}</div>
                 </div>
               ))}
             </div>
+
+            {/* Быстрые кнопки */}
+            {chat.length < 3 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {quickReplies.map((q) => (
+                  <button key={q.label} onClick={() => send(q.label)}
+                    className="text-xs bg-muted hover:bg-primary/10 hover:text-primary border border-border rounded-full px-3 py-1.5 transition-colors text-left">
+                    {q.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className="flex gap-2">
               <Input value={msg} onChange={(e) => setMsg(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder="Задайте вопрос..." className="rounded-full bg-muted border-0" />
-              <Button size="icon" className="rounded-full shrink-0" onClick={send}><Icon name="ArrowUp" size={18} /></Button>
+              <Button size="icon" className="rounded-full shrink-0" onClick={() => send()}><Icon name="ArrowUp" size={18} /></Button>
             </div>
+
+            <a href="https://t.me/green_team_2_0_bot" target="_blank" rel="noreferrer"
+              className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-secondary transition-colors">
+              <Icon name="ExternalLink" size={12} /> Открыть полный чат-бот в Telegram
+            </a>
           </Card>
 
           {/* FAQ */}
