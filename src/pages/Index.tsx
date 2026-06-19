@@ -194,11 +194,11 @@ const Index = () => {
       <header className="relative z-20 sticky top-0 backdrop-blur-xl bg-background/70 border-b border-border">
         <div className="container flex items-center justify-between h-20">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-primary flex items-center justify-center rotate-3">
-              <Icon name="Rocket" className="text-primary-foreground" size={22} />
+            <div className="w-11 h-11 rounded-2xl bg-primary flex items-center justify-center overflow-hidden">
+              <img src="https://cdn.poehali.dev/projects/75c7bfbb-449a-496c-8281-98107283b3f9/bucket/23afddee-becb-4deb-9040-eb547f906bb5.jpg" alt="GreenTeam" className="w-full h-full object-cover" />
             </div>
             <div>
-              <div className="font-display font-bold text-lg leading-none">Орбита</div>
+              <div className="font-display font-bold text-lg leading-none">GreenTeam_2.0</div>
               <div className="text-xs text-muted-foreground mt-0.5">портал команды</div>
             </div>
           </div>
@@ -228,7 +228,7 @@ const Index = () => {
               <Icon name="Sparkles" size={14} className="mr-1.5" /> Всё о жизни команды в одном месте
             </Badge>
             <h1 className="font-display font-extrabold text-5xl md:text-6xl leading-[1.02] tracking-tight">
-              Добро <span className="text-primary">пожаловать</span><br />на орбиту команды
+              Добро <span className="text-primary">пожаловать</span><br />в GreenTeam_2.0
             </h1>
             <p className="text-lg text-muted-foreground mt-6 max-w-xl">
               Новости из Telegram, дни рождения коллег, мероприятия и умный помощник для новичков — собрали важное на одной странице.
