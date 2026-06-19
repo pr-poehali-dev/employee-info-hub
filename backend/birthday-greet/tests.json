@@ -1,0 +1,1 @@
+{"tests": [{"name": "Check birthdays today", "method": "GET", "path": "/", "expectedStatus": 200, "expectedBody": {"date": "string"}, "bodyMatcher": "partial"}]}

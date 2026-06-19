@@ -51,6 +51,17 @@ const integrations = [
 ];
 
 const TELEGRAM_FEED_URL = 'https://functions.poehali.dev/cfb59cf0-eb70-481c-ad5f-3b4d0368839f';
+const EMPLOYEES_URL = 'https://functions.poehali.dev/a1ee0a1b-ecf4-451d-a47d-e6f321fa88ec';
+const BIRTHDAY_GREET_URL = 'https://functions.poehali.dev/de8d8849-4828-4b2a-a26c-d70e62353206';
+
+type Employee = { id: number; name: string; role: string; birthday: string; tgUsername: string; greetedYear: number | null };
+
+const initials = (name: string) => name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+
+const formatBirthday = (iso: string) => {
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+};
 
 const timeAgo = (iso: string) => {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -83,6 +94,57 @@ const Index = () => {
     const timer = setInterval(loadPosts, 60000);
     return () => clearInterval(timer);
   }, []);
+
+  // Employees
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [empLoading, setEmpLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newEmp, setNewEmp] = useState({ name: '', role: '', birthday: '', tgUsername: '' });
+  const [greetStatus, setGreetStatus] = useState<string | null>(null);
+  const [greetLoading, setGreetLoading] = useState(false);
+
+  const loadEmployees = () => {
+    setEmpLoading(true);
+    fetch(EMPLOYEES_URL)
+      .then((r) => r.json())
+      .then((d) => setEmployees(d.employees || []))
+      .catch(() => {})
+      .finally(() => setEmpLoading(false));
+  };
+
+  useEffect(() => { loadEmployees(); }, []);
+
+  const addEmployee = () => {
+    if (!newEmp.name || !newEmp.birthday) return;
+    fetch(EMPLOYEES_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newEmp),
+    })
+      .then((r) => r.json())
+      .then(() => { loadEmployees(); setShowAddForm(false); setNewEmp({ name: '', role: '', birthday: '', tgUsername: '' }); })
+      .catch(() => {});
+  };
+
+  const deleteEmployee = (id: number) => {
+    fetch(`${EMPLOYEES_URL}?id=${id}`, { method: 'DELETE' })
+      .then(() => loadEmployees())
+      .catch(() => {});
+  };
+
+  const runGreetings = () => {
+    setGreetLoading(true);
+    setGreetStatus(null);
+    fetch(BIRTHDAY_GREET_URL)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.sent?.length > 0) setGreetStatus(`🎉 Поздравления отправлены: ${d.sent.map((s: { name: string }) => s.name).join(', ')}`);
+        else setGreetStatus('Сегодня именинников нет — бот проверил список.');
+      })
+      .catch(() => setGreetStatus('Ошибка соединения. Попробуйте позже.'))
+      .finally(() => setGreetLoading(false));
+  };
+
   const [chat, setChat] = useState([
     { from: 'bot', text: 'Привет! Я Юра — помощник для новичков. Спроси меня о чём угодно 🚀' },
   ]);
@@ -228,19 +290,77 @@ const Index = () => {
 
           {/* Team */}
           <div className="pt-4">
-            <SectionHead icon="Users" title="Команда" subtitle="Профили и контакты коллег" />
-            <div className="grid sm:grid-cols-2 gap-4">
-              {team.map((m, i) => (
-                <Card key={i} className="p-5 rounded-3xl border-border hover-lift bg-card flex items-center gap-4">
-                  <Avatar className="w-14 h-14 border-2 border-muted"><AvatarFallback className="bg-accent/15 text-accent font-display font-bold">{m.initials}</AvatarFallback></Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold truncate">{m.name}</div>
-                    <div className="text-sm text-muted-foreground">{m.role} · {m.dept}</div>
-                    <div className="text-xs text-secondary mt-1 flex items-center gap-1"><Icon name="Send" size={12} /> {m.tg}</div>
-                  </div>
-                </Card>
-              ))}
+            <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
+              <SectionHead icon="Users" title="Команда" subtitle={`${employees.length} сотрудников в базе`} />
+              <Button size="sm" className="rounded-full gap-2" onClick={() => setShowAddForm((v) => !v)}>
+                <Icon name={showAddForm ? 'X' : 'UserPlus'} size={15} />
+                {showAddForm ? 'Отмена' : 'Добавить'}
+              </Button>
             </div>
+
+            {showAddForm && (
+              <Card className="p-5 rounded-3xl border-primary/30 bg-primary/5 mb-4 animate-fade-up">
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <Input placeholder="Имя и фамилия *" value={newEmp.name} onChange={(e) => setNewEmp((p) => ({ ...p, name: e.target.value }))} className="rounded-2xl" />
+                  <Input placeholder="Должность" value={newEmp.role} onChange={(e) => setNewEmp((p) => ({ ...p, role: e.target.value }))} className="rounded-2xl" />
+                  <Input type="date" placeholder="Дата рождения *" value={newEmp.birthday} onChange={(e) => setNewEmp((p) => ({ ...p, birthday: e.target.value }))} className="rounded-2xl" />
+                  <Input placeholder="@telegram" value={newEmp.tgUsername} onChange={(e) => setNewEmp((p) => ({ ...p, tgUsername: e.target.value }))} className="rounded-2xl" />
+                </div>
+                <Button className="mt-3 rounded-full w-full" onClick={addEmployee} disabled={!newEmp.name || !newEmp.birthday}>
+                  <Icon name="Check" size={15} className="mr-2" /> Сохранить
+                </Button>
+              </Card>
+            )}
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              {empLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <Card key={i} className="p-5 rounded-3xl border-border bg-card flex items-center gap-4 animate-pulse">
+                    <div className="w-14 h-14 rounded-full bg-muted shrink-0" />
+                    <div className="flex-1 space-y-2"><div className="h-4 bg-muted rounded-full w-3/4" /><div className="h-3 bg-muted rounded-full w-1/2" /></div>
+                  </Card>
+                ))
+              ) : (
+                employees.map((m) => (
+                  <Card key={m.id} className="p-5 rounded-3xl border-border hover-lift bg-card flex items-center gap-4 group">
+                    <Avatar className="w-14 h-14 border-2 border-muted shrink-0"><AvatarFallback className="bg-accent/15 text-accent font-display font-bold">{initials(m.name)}</AvatarFallback></Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold truncate">{m.name}</div>
+                      <div className="text-sm text-muted-foreground">{m.role}</div>
+                      <div className="flex items-center gap-3 mt-1">
+                        {m.tgUsername && <span className="text-xs text-secondary flex items-center gap-1"><Icon name="Send" size={12} />{m.tgUsername}</span>}
+                        <span className="text-xs text-muted-foreground flex items-center gap-1"><Icon name="Cake" size={12} />{formatBirthday(m.birthday)}</span>
+                      </div>
+                    </div>
+                    <button onClick={() => deleteEmployee(m.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive">
+                      <Icon name="Trash2" size={15} />
+                    </button>
+                  </Card>
+                ))
+              )}
+            </div>
+
+            {/* Birthday controls */}
+            <Card className="mt-4 p-5 rounded-3xl border-border bg-card">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-primary/15 flex items-center justify-center"><Icon name="Cake" className="text-primary" size={20} /></div>
+                  <div>
+                    <div className="font-semibold">Авто-поздравления</div>
+                    <div className="text-sm text-muted-foreground">Бот пишет в @moeGT22 в день рождения</div>
+                  </div>
+                </div>
+                <Button onClick={runGreetings} disabled={greetLoading} variant="outline" className="rounded-full gap-2">
+                  <Icon name={greetLoading ? 'Loader' : 'Send'} size={16} className={greetLoading ? 'animate-spin' : ''} />
+                  {greetLoading ? 'Проверяю...' : 'Запустить сейчас'}
+                </Button>
+              </div>
+              {greetStatus && (
+                <div className="mt-3 rounded-2xl bg-secondary/10 px-4 py-3 text-sm text-foreground animate-fade-up">
+                  {greetStatus}
+                </div>
+              )}
+            </Card>
           </div>
         </div>
 
@@ -248,20 +368,42 @@ const Index = () => {
         <aside className="space-y-6">
           {/* Calendar */}
           <Card className="p-6 rounded-3xl border-border bg-card">
-            <SectionHead icon="CalendarHeart" title="Календарь" subtitle="Июнь 2026" small />
+            <SectionHead icon="CalendarHeart" title="Календарь" subtitle="Дни рождения" small />
             <div className="space-y-3 mt-4">
-              {events.map((e, i) => (
-                <div key={i} className="flex items-center gap-3 group cursor-pointer">
-                  <div className={`${e.color} text-primary-foreground rounded-2xl w-14 h-14 shrink-0 flex flex-col items-center justify-center leading-none`}>
-                    <span className="font-display font-bold text-lg">{e.day}</span>
-                    <span className="text-[10px] opacity-80 mt-0.5">{e.month}</span>
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold group-hover:text-primary transition-colors">{e.title}</div>
-                    <div className="text-xs text-muted-foreground">{e.type}</div>
-                  </div>
-                </div>
-              ))}
+              {employees.length === 0 && !empLoading && (
+                <p className="text-sm text-muted-foreground text-center py-4">Добавьте сотрудников в команду</p>
+              )}
+              {employees
+                .slice()
+                .sort((a, b) => {
+                  const now = new Date();
+                  const toNext = (iso: string) => {
+                    const d = new Date(iso + 'T00:00:00');
+                    const next = new Date(now.getFullYear(), d.getMonth(), d.getDate());
+                    if (next < now) next.setFullYear(now.getFullYear() + 1);
+                    return next.getTime();
+                  };
+                  return toNext(a.birthday) - toNext(b.birthday);
+                })
+                .slice(0, 5)
+                .map((emp) => {
+                  const d = new Date(emp.birthday + 'T00:00:00');
+                  const today = new Date();
+                  const isToday = d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+                  const MONTHS = ['ЯНВ','ФЕВ','МАР','АПР','МАЙ','ИЮН','ИЮЛ','АВГ','СЕН','ОКТ','НОЯ','ДЕК'];
+                  return (
+                    <div key={emp.id} className="flex items-center gap-3 group cursor-pointer">
+                      <div className={`${isToday ? 'bg-primary' : 'bg-muted'} ${isToday ? 'text-primary-foreground' : 'text-foreground'} rounded-2xl w-14 h-14 shrink-0 flex flex-col items-center justify-center leading-none`}>
+                        <span className="font-display font-bold text-lg">{d.getDate()}</span>
+                        <span className="text-[10px] opacity-80 mt-0.5">{MONTHS[d.getMonth()]}</span>
+                      </div>
+                      <div className="flex-1">
+                        <div className={`text-sm font-semibold group-hover:text-primary transition-colors ${isToday ? 'text-primary' : ''}`}>{emp.name}</div>
+                        <div className="text-xs text-muted-foreground">{isToday ? '🎉 Сегодня!' : 'День рождения'}</div>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
             <div className="mt-5 rounded-2xl bg-primary/10 p-4 flex items-start gap-3">
               <Icon name="BellRing" className="text-primary shrink-0 mt-0.5" size={18} />
