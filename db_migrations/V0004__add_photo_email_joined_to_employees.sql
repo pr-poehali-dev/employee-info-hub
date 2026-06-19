@@ -1,0 +1,4 @@
+ALTER TABLE employees
+    ADD COLUMN IF NOT EXISTS photo_url TEXT,
+    ADD COLUMN IF NOT EXISTS email TEXT,
+    ADD COLUMN IF NOT EXISTS joined_at DATE;

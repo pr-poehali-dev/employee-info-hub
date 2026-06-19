@@ -54,7 +54,7 @@ const TELEGRAM_FEED_URL = 'https://functions.poehali.dev/cfb59cf0-eb70-481c-ad5f
 const EMPLOYEES_URL = 'https://functions.poehali.dev/a1ee0a1b-ecf4-451d-a47d-e6f321fa88ec';
 const BIRTHDAY_GREET_URL = 'https://functions.poehali.dev/de8d8849-4828-4b2a-a26c-d70e62353206';
 
-type Employee = { id: number; name: string; role: string; birthday: string; tgUsername: string; greetedYear: number | null };
+type Employee = { id: number; name: string; role: string; birthday: string; tgUsername: string; greetedYear: number | null; photoUrl: string; email: string; joinedAt: string | null; daysInCompany: number | null };
 type TgPost = { id: number; channel: string; text: string; postedAt: string; mediaType: string | null; mediaUrl: string | null };
 
 const initials = (name: string) => name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
@@ -100,7 +100,8 @@ const Index = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [empLoading, setEmpLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newEmp, setNewEmp] = useState({ name: '', role: '', birthday: '', tgUsername: '' });
+  const [newEmp, setNewEmp] = useState({ name: '', role: '', birthday: '', tgUsername: '', email: '', joinedAt: '' });
+  const [newEmpPhoto, setNewEmpPhoto] = useState<string>('');
   const [greetStatus, setGreetStatus] = useState<string | null>(null);
   const [greetLoading, setGreetLoading] = useState(false);
 
@@ -115,16 +116,42 @@ const Index = () => {
 
   useEffect(() => { loadEmployees(); }, []);
 
-  const addEmployee = () => {
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setNewEmpPhoto(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const addEmployee = async () => {
     if (!newEmp.name || !newEmp.birthday) return;
-    fetch(EMPLOYEES_URL, {
+    const res = await fetch(EMPLOYEES_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newEmp),
-    })
-      .then((r) => r.json())
-      .then(() => { loadEmployees(); setShowAddForm(false); setNewEmp({ name: '', role: '', birthday: '', tgUsername: '' }); })
-      .catch(() => {});
+    });
+    const data = await res.json();
+    const newId = data.id;
+    if (newEmpPhoto && newId) {
+      await fetch(`${EMPLOYEES_URL}/upload-photo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: newId, photo: newEmpPhoto }),
+      }).catch(() => {});
+    }
+    loadEmployees();
+    setShowAddForm(false);
+    setNewEmp({ name: '', role: '', birthday: '', tgUsername: '', email: '', joinedAt: '' });
+    setNewEmpPhoto('');
+  };
+
+  const uploadPhoto = (id: number, dataUrl: string) => {
+    fetch(`${EMPLOYEES_URL}/upload-photo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, photo: dataUrl }),
+    }).then(() => loadEmployees()).catch(() => {});
   };
 
   const deleteEmployee = (id: number) => {
@@ -338,14 +365,37 @@ const Index = () => {
 
             {showAddForm && (
               <Card className="p-5 rounded-3xl border-primary/30 bg-primary/5 mb-4 animate-fade-up">
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <Input placeholder="Имя и фамилия *" value={newEmp.name} onChange={(e) => setNewEmp((p) => ({ ...p, name: e.target.value }))} className="rounded-2xl" />
-                  <Input placeholder="Должность" value={newEmp.role} onChange={(e) => setNewEmp((p) => ({ ...p, role: e.target.value }))} className="rounded-2xl" />
-                  <Input type="date" placeholder="Дата рождения *" value={newEmp.birthday} onChange={(e) => setNewEmp((p) => ({ ...p, birthday: e.target.value }))} className="rounded-2xl" />
-                  <Input placeholder="@telegram" value={newEmp.tgUsername} onChange={(e) => setNewEmp((p) => ({ ...p, tgUsername: e.target.value }))} className="rounded-2xl" />
+                <div className="flex items-start gap-4 mb-4">
+                  {/* Фото-пикер */}
+                  <label className="cursor-pointer shrink-0 group">
+                    <div className="w-20 h-20 rounded-2xl bg-muted border-2 border-dashed border-border group-hover:border-primary transition-colors overflow-hidden flex items-center justify-center">
+                      {newEmpPhoto
+                        ? <img src={newEmpPhoto} className="w-full h-full object-cover" alt="" />
+                        : <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                            <Icon name="Camera" size={20} />
+                            <span className="text-[10px]">Фото</span>
+                          </div>
+                      }
+                    </div>
+                    <input type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
+                  </label>
+                  <div className="flex-1 grid sm:grid-cols-2 gap-3">
+                    <Input placeholder="Имя и фамилия *" value={newEmp.name} onChange={(e) => setNewEmp((p) => ({ ...p, name: e.target.value }))} className="rounded-2xl" />
+                    <Input placeholder="Должность" value={newEmp.role} onChange={(e) => setNewEmp((p) => ({ ...p, role: e.target.value }))} className="rounded-2xl" />
+                    <Input type="email" placeholder="Email" value={newEmp.email} onChange={(e) => setNewEmp((p) => ({ ...p, email: e.target.value }))} className="rounded-2xl" />
+                    <Input placeholder="@telegram" value={newEmp.tgUsername} onChange={(e) => setNewEmp((p) => ({ ...p, tgUsername: e.target.value }))} className="rounded-2xl" />
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs text-muted-foreground pl-1">Дата рождения *</label>
+                      <Input type="date" value={newEmp.birthday} onChange={(e) => setNewEmp((p) => ({ ...p, birthday: e.target.value }))} className="rounded-2xl" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs text-muted-foreground pl-1">Пришёл в компанию</label>
+                      <Input type="date" value={newEmp.joinedAt} onChange={(e) => setNewEmp((p) => ({ ...p, joinedAt: e.target.value }))} className="rounded-2xl" />
+                    </div>
+                  </div>
                 </div>
-                <Button className="mt-3 rounded-full w-full" onClick={addEmployee} disabled={!newEmp.name || !newEmp.birthday}>
-                  <Icon name="Check" size={15} className="mr-2" /> Сохранить
+                <Button className="rounded-full w-full" onClick={addEmployee} disabled={!newEmp.name || !newEmp.birthday}>
+                  <Icon name="Check" size={15} className="mr-2" /> Сохранить сотрудника
                 </Button>
               </Card>
             )}
@@ -353,26 +403,81 @@ const Index = () => {
             <div className="grid sm:grid-cols-2 gap-4">
               {empLoading ? (
                 Array.from({ length: 4 }).map((_, i) => (
-                  <Card key={i} className="p-5 rounded-3xl border-border bg-card flex items-center gap-4 animate-pulse">
-                    <div className="w-14 h-14 rounded-full bg-muted shrink-0" />
-                    <div className="flex-1 space-y-2"><div className="h-4 bg-muted rounded-full w-3/4" /><div className="h-3 bg-muted rounded-full w-1/2" /></div>
+                  <Card key={i} className="p-5 rounded-3xl border-border bg-card animate-pulse">
+                    <div className="flex items-center gap-4 mb-3">
+                      <div className="w-16 h-16 rounded-2xl bg-muted shrink-0" />
+                      <div className="flex-1 space-y-2"><div className="h-4 bg-muted rounded-full w-3/4" /><div className="h-3 bg-muted rounded-full w-1/2" /></div>
+                    </div>
+                    <div className="h-3 bg-muted rounded-full w-full mt-2" />
                   </Card>
                 ))
               ) : (
                 employees.map((m) => (
-                  <Card key={m.id} className="p-5 rounded-3xl border-border hover-lift bg-card flex items-center gap-4 group">
-                    <Avatar className="w-14 h-14 border-2 border-muted shrink-0"><AvatarFallback className="bg-accent/15 text-accent font-display font-bold">{initials(m.name)}</AvatarFallback></Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold truncate">{m.name}</div>
-                      <div className="text-sm text-muted-foreground">{m.role}</div>
-                      <div className="flex items-center gap-3 mt-1">
-                        {m.tgUsername && <span className="text-xs text-secondary flex items-center gap-1"><Icon name="Send" size={12} />{m.tgUsername}</span>}
-                        <span className="text-xs text-muted-foreground flex items-center gap-1"><Icon name="Cake" size={12} />{formatBirthday(m.birthday)}</span>
+                  <Card key={m.id} className="rounded-3xl border-border hover-lift bg-card overflow-hidden group">
+                    {/* Верхняя часть с фото */}
+                    <div className="relative">
+                      <label className="cursor-pointer block">
+                        {m.photoUrl
+                          ? <img src={m.photoUrl} alt={m.name} className="w-full h-36 object-cover object-top" />
+                          : <div className="w-full h-36 bg-gradient-to-br from-accent/20 to-secondary/20 flex items-center justify-center">
+                              <span className="font-display font-bold text-3xl text-accent/60">{initials(m.name)}</span>
+                            </div>
+                        }
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                          <div className="bg-white/90 rounded-full px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium">
+                            <Icon name="Camera" size={13} /> Изменить фото
+                          </div>
+                        </div>
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (!f) return;
+                          const r = new FileReader();
+                          r.onload = (ev) => uploadPhoto(m.id, ev.target?.result as string);
+                          r.readAsDataURL(f);
+                        }} />
+                      </label>
+                      {/* Бейдж дней в компании */}
+                      {m.daysInCompany !== null && (
+                        <div className="absolute top-2 right-2 bg-card/90 backdrop-blur-sm rounded-xl px-2.5 py-1.5 text-center shadow-sm">
+                          <div className="font-display font-bold text-sm text-primary leading-none">{m.daysInCompany}</div>
+                          <div className="text-[9px] text-muted-foreground leading-none mt-0.5">дней</div>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => deleteEmployee(m.id)}
+                        className="absolute top-2 left-2 w-7 h-7 rounded-xl bg-card/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                      >
+                        <Icon name="Trash2" size={13} />
+                      </button>
+                    </div>
+                    {/* Информация */}
+                    <div className="p-4">
+                      <div className="font-display font-semibold truncate">{m.name}</div>
+                      {m.role && <div className="text-sm text-muted-foreground mt-0.5">{m.role}</div>}
+                      <div className="mt-3 space-y-1.5">
+                        {m.email && (
+                          <a href={`mailto:${m.email}`} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                            <Icon name="Mail" size={12} className="shrink-0" /><span className="truncate">{m.email}</span>
+                          </a>
+                        )}
+                        {m.tgUsername && (
+                          <div className="flex items-center gap-2 text-xs text-secondary">
+                            <Icon name="Send" size={12} className="shrink-0" /><span>{m.tgUsername}</span>
+                          </div>
+                        )}
+                        {m.birthday && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Icon name="Cake" size={12} className="shrink-0" /><span>{formatBirthday(m.birthday)}</span>
+                          </div>
+                        )}
+                        {m.joinedAt && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Icon name="CalendarCheck" size={12} className="shrink-0" />
+                            <span>в компании с {new Date(m.joinedAt + 'T00:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <button onClick={() => deleteEmployee(m.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive">
-                      <Icon name="Trash2" size={15} />
-                    </button>
                   </Card>
                 ))
               )}
