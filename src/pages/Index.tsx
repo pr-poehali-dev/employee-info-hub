@@ -55,6 +55,7 @@ const EMPLOYEES_URL = 'https://functions.poehali.dev/a1ee0a1b-ecf4-451d-a47d-e6f
 const BIRTHDAY_GREET_URL = 'https://functions.poehali.dev/de8d8849-4828-4b2a-a26c-d70e62353206';
 
 type Employee = { id: number; name: string; role: string; birthday: string; tgUsername: string; greetedYear: number | null };
+type TgPost = { id: number; channel: string; text: string; postedAt: string; mediaType: string | null; mediaUrl: string | null };
 
 const initials = (name: string) => name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 
@@ -73,7 +74,7 @@ const timeAgo = (iso: string) => {
 
 const Index = () => {
   const [active, setActive] = useState('feed');
-  const [tgPosts, setTgPosts] = useState<{ id: number; channel: string; text: string; postedAt: string }[]>([]);
+  const [tgPosts, setTgPosts] = useState<TgPost[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [pulse, setPulse] = useState(false);
 
@@ -253,18 +254,55 @@ const Index = () => {
           </div>
           {tgPosts.length > 0 ? (
             tgPosts.map((p, i) => {
-              const lines = p.text.split('\n').filter(Boolean);
+              const lines = p.text ? p.text.split('\n').filter(Boolean) : [];
+              const hasMedia = p.mediaType && p.mediaUrl;
               return (
-                <Card key={p.id} className="p-6 rounded-3xl border-border hover-lift cursor-pointer bg-card animate-fade-up" style={{ animationDelay: `${i * 0.08}s` }}>
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 shrink-0 rounded-2xl bg-secondary/15 text-secondary flex items-center justify-center"><Icon name="Send" size={20} /></div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-2">
-                        <Badge className="bg-secondary text-secondary-foreground border-0 rounded-full text-xs">Telegram</Badge>
-                        <span className="text-xs text-muted-foreground">{p.channel} · {timeAgo(p.postedAt)}</span>
+                <Card key={p.id} className="rounded-3xl border-border hover-lift cursor-pointer bg-card animate-fade-up overflow-hidden" style={{ animationDelay: `${i * 0.08}s` }}>
+                  {/* Медиа-превью */}
+                  {hasMedia && (
+                    <div className="relative w-full overflow-hidden" style={{ maxHeight: '360px' }}>
+                      <img
+                        src={p.mediaUrl!}
+                        alt=""
+                        className="w-full object-cover"
+                        style={{ maxHeight: '360px' }}
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      />
+                      {(p.mediaType === 'video' || p.mediaType === 'animation') && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                          <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center shadow-xl">
+                            <Icon name="Play" size={28} className="text-foreground ml-1" />
+                          </div>
+                        </div>
+                      )}
+                      <div className="absolute top-3 left-3">
+                        <Badge className="bg-secondary text-secondary-foreground border-0 rounded-full text-xs backdrop-blur-sm">
+                          <Icon name={p.mediaType === 'photo' ? 'Image' : 'Video'} size={11} className="mr-1" />
+                          {p.mediaType === 'photo' ? 'Фото' : p.mediaType === 'animation' ? 'GIF' : 'Видео'}
+                        </Badge>
                       </div>
-                      <h3 className="font-display font-semibold text-lg leading-snug">{lines[0]}</h3>
-                      {lines.length > 1 && <p className="text-muted-foreground text-sm mt-1.5 whitespace-pre-line">{lines.slice(1).join('\n')}</p>}
+                    </div>
+                  )}
+                  <div className="p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 shrink-0 rounded-2xl bg-secondary/15 text-secondary flex items-center justify-center">
+                        <Icon name="Send" size={18} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-2">
+                          <Badge className="bg-secondary/20 text-secondary border-0 rounded-full text-xs">Telegram</Badge>
+                          <span className="text-xs text-muted-foreground">{p.channel} · {timeAgo(p.postedAt)}</span>
+                        </div>
+                        {lines.length > 0 && (
+                          <>
+                            <h3 className="font-display font-semibold text-base leading-snug">{lines[0]}</h3>
+                            {lines.length > 1 && <p className="text-muted-foreground text-sm mt-1.5 whitespace-pre-line line-clamp-4">{lines.slice(1).join('\n')}</p>}
+                          </>
+                        )}
+                        {lines.length === 0 && hasMedia && (
+                          <p className="text-muted-foreground text-sm italic">Медиа без подписи</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </Card>

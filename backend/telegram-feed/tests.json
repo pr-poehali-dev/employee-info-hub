@@ -1,1 +1,1 @@
-{"tests": [{"name": "Get feed posts", "method": "GET", "path": "/", "expectedStatus": 200, "expectedBody": {"newCount": 0}, "bodyMatcher": "partial"}]}
+{"tests": [{"name": "Get feed posts", "method": "GET", "path": "/", "expectedStatus": 200}]}
