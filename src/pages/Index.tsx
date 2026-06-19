@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,8 +50,26 @@ const integrations = [
   { name: 'Email-уведомления', desc: 'Дайджест мероприятий', icon: 'Mail', status: 'Настроить', on: false },
 ];
 
+const TELEGRAM_FEED_URL = 'https://functions.poehali.dev/cfb59cf0-eb70-481c-ad5f-3b4d0368839f';
+
+const timeAgo = (iso: string) => {
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (diff < 1) return 'только что';
+  if (diff < 60) return `${diff} мин назад`;
+  if (diff < 1440) return `${Math.floor(diff / 60)} ч назад`;
+  return `${Math.floor(diff / 1440)} дн назад`;
+};
+
 const Index = () => {
   const [active, setActive] = useState('feed');
+  const [tgPosts, setTgPosts] = useState<{ id: number; channel: string; text: string; postedAt: string }[]>([]);
+
+  useEffect(() => {
+    fetch(TELEGRAM_FEED_URL)
+      .then((r) => r.json())
+      .then((d) => setTgPosts(d.posts || []))
+      .catch(() => {});
+  }, []);
   const [chat, setChat] = useState([
     { from: 'bot', text: 'Привет! Я Юра — помощник для новичков. Спроси меня о чём угодно 🚀' },
   ]);
@@ -146,22 +164,43 @@ const Index = () => {
       <main className="relative z-10 container pb-24 grid lg:grid-cols-3 gap-6 mt-6">
         {/* Feed */}
         <div className="lg:col-span-2 space-y-6">
-          <SectionHead icon="Newspaper" title="Лента событий" subtitle="Новости из Telegram и анонсы" />
-          {feed.map((f, i) => (
-            <Card key={i} className="p-6 rounded-3xl border-border hover-lift cursor-pointer bg-card animate-fade-up" style={{ animationDelay: `${i * 0.08}s` }}>
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 shrink-0 rounded-2xl bg-muted flex items-center justify-center"><Icon name={f.icon} size={20} /></div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 flex-wrap mb-2">
-                    <Badge className={`${f.tagColor} border-0 rounded-full text-xs`}>{f.tag}</Badge>
-                    <span className="text-xs text-muted-foreground">{f.author} · {f.time}</span>
+          <SectionHead icon="Newspaper" title="Лента событий" subtitle={tgPosts.length ? 'Прямой эфир из @moeGT22' : 'Новости из Telegram и анонсы'} />
+          {tgPosts.length > 0 ? (
+            tgPosts.map((p, i) => {
+              const lines = p.text.split('\n').filter(Boolean);
+              return (
+                <Card key={p.id} className="p-6 rounded-3xl border-border hover-lift cursor-pointer bg-card animate-fade-up" style={{ animationDelay: `${i * 0.08}s` }}>
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 shrink-0 rounded-2xl bg-secondary/15 text-secondary flex items-center justify-center"><Icon name="Send" size={20} /></div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-2">
+                        <Badge className="bg-secondary text-secondary-foreground border-0 rounded-full text-xs">Telegram</Badge>
+                        <span className="text-xs text-muted-foreground">{p.channel} · {timeAgo(p.postedAt)}</span>
+                      </div>
+                      <h3 className="font-display font-semibold text-lg leading-snug">{lines[0]}</h3>
+                      {lines.length > 1 && <p className="text-muted-foreground text-sm mt-1.5 whitespace-pre-line">{lines.slice(1).join('\n')}</p>}
+                    </div>
                   </div>
-                  <h3 className="font-display font-semibold text-lg leading-snug">{f.title}</h3>
-                  <p className="text-muted-foreground text-sm mt-1.5">{f.text}</p>
+                </Card>
+              );
+            })
+          ) : (
+            feed.map((f, i) => (
+              <Card key={i} className="p-6 rounded-3xl border-border hover-lift cursor-pointer bg-card animate-fade-up" style={{ animationDelay: `${i * 0.08}s` }}>
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 shrink-0 rounded-2xl bg-muted flex items-center justify-center"><Icon name={f.icon} size={20} /></div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                      <Badge className={`${f.tagColor} border-0 rounded-full text-xs`}>{f.tag}</Badge>
+                      <span className="text-xs text-muted-foreground">{f.author} · {f.time}</span>
+                    </div>
+                    <h3 className="font-display font-semibold text-lg leading-snug">{f.title}</h3>
+                    <p className="text-muted-foreground text-sm mt-1.5">{f.text}</p>
+                  </div>
                 </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            ))
+          )}
 
           {/* Team */}
           <div className="pt-4">
