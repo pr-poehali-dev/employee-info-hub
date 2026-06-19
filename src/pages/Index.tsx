@@ -55,7 +55,7 @@ const EMPLOYEES_URL = 'https://functions.poehali.dev/a1ee0a1b-ecf4-451d-a47d-e6f
 const BIRTHDAY_GREET_URL = 'https://functions.poehali.dev/de8d8849-4828-4b2a-a26c-d70e62353206';
 
 type Employee = { id: number; name: string; role: string; birthday: string; tgUsername: string; greetedYear: number | null; photoUrl: string; email: string; joinedAt: string | null; daysInCompany: number | null };
-type TgPost = { id: number; channel: string; text: string; postedAt: string; mediaType: string | null; mediaUrl: string | null };
+type TgPost = { id: number; channel: string; text: string; postedAt: string; mediaType: string | null; mediaUrl: string | null; mediaFileUrl: string | null; mediaGroupId: string | null };
 
 const initials = (name: string) => name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 
@@ -282,55 +282,131 @@ const Index = () => {
           {tgPosts.length > 0 ? (
             tgPosts.map((p, i) => {
               const lines = p.text ? p.text.split('\n').filter(Boolean) : [];
-              const hasMedia = p.mediaType && p.mediaUrl;
+              const isVideo = p.mediaType === 'video';
+              const isGif = p.mediaType === 'animation';
+              const isPhoto = p.mediaType === 'photo';
+              const isVoice = p.mediaType === 'voice';
+              const isDoc = p.mediaType === 'document';
+              const isSticker = p.mediaType === 'sticker';
+
+              const mediaBadgeLabel: Record<string, string> = { photo: 'Фото', video: 'Видео', animation: 'GIF', voice: 'Голосовое', document: 'Документ', sticker: 'Стикер' };
+              const mediaBadgeIcon: Record<string, string> = { photo: 'Image', video: 'Video', animation: 'Zap', voice: 'Mic', document: 'FileText', sticker: 'Smile' };
+
               return (
-                <Card key={p.id} className="rounded-3xl border-border hover-lift cursor-pointer bg-card animate-fade-up overflow-hidden" style={{ animationDelay: `${i * 0.08}s` }}>
-                  {/* Медиа-превью */}
-                  {hasMedia && (
-                    <div className="relative w-full overflow-hidden" style={{ maxHeight: '360px' }}>
-                      <img
-                        src={p.mediaUrl!}
-                        alt=""
-                        className="w-full object-cover"
-                        style={{ maxHeight: '360px' }}
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                <Card key={p.id} className="rounded-3xl border-border hover-lift bg-card animate-fade-up overflow-hidden" style={{ animationDelay: `${i * 0.08}s` }}>
+
+                  {/* ВИДЕО — встроенный плеер */}
+                  {isVideo && p.mediaFileUrl && (
+                    <div className="relative w-full bg-black overflow-hidden rounded-t-3xl" style={{ maxHeight: '420px' }}>
+                      <video
+                        src={p.mediaFileUrl}
+                        poster={p.mediaUrl || undefined}
+                        controls
+                        preload="metadata"
+                        className="w-full max-h-[420px] object-contain"
                       />
-                      {(p.mediaType === 'video' || p.mediaType === 'animation') && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                          <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center shadow-xl">
-                            <Icon name="Play" size={28} className="text-foreground ml-1" />
-                          </div>
-                        </div>
-                      )}
-                      <div className="absolute top-3 left-3">
-                        <Badge className="bg-secondary text-secondary-foreground border-0 rounded-full text-xs backdrop-blur-sm">
-                          <Icon name={p.mediaType === 'photo' ? 'Image' : 'Video'} size={11} className="mr-1" />
-                          {p.mediaType === 'photo' ? 'Фото' : p.mediaType === 'animation' ? 'GIF' : 'Видео'}
-                        </Badge>
+                    </div>
+                  )}
+                  {/* Видео без файла — превью+кнопка */}
+                  {isVideo && !p.mediaFileUrl && p.mediaUrl && (
+                    <div className="relative w-full overflow-hidden rounded-t-3xl bg-black" style={{ maxHeight: '360px' }}>
+                      <img src={p.mediaUrl} alt="" className="w-full object-cover opacity-70" style={{ maxHeight: '360px' }} />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center shadow-xl"><Icon name="Play" size={28} className="text-foreground ml-1" /></div>
                       </div>
                     </div>
                   )}
-                  <div className="p-6">
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 shrink-0 rounded-2xl bg-secondary/15 text-secondary flex items-center justify-center">
-                        <Icon name="Send" size={18} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-2">
-                          <Badge className="bg-secondary/20 text-secondary border-0 rounded-full text-xs">Telegram</Badge>
-                          <span className="text-xs text-muted-foreground">{p.channel} · {timeAgo(p.postedAt)}</span>
-                        </div>
-                        {lines.length > 0 && (
-                          <>
-                            <h3 className="font-display font-semibold text-base leading-snug">{lines[0]}</h3>
-                            {lines.length > 1 && <p className="text-muted-foreground text-sm mt-1.5 whitespace-pre-line line-clamp-4">{lines.slice(1).join('\n')}</p>}
-                          </>
-                        )}
-                        {lines.length === 0 && hasMedia && (
-                          <p className="text-muted-foreground text-sm italic">Медиа без подписи</p>
-                        )}
+
+                  {/* GIF — автовоспроизведение */}
+                  {isGif && p.mediaFileUrl && (
+                    <div className="relative w-full overflow-hidden rounded-t-3xl bg-black" style={{ maxHeight: '360px' }}>
+                      <video
+                        src={p.mediaFileUrl}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        className="w-full max-h-[360px] object-contain"
+                      />
+                      <div className="absolute top-3 left-3">
+                        <Badge className="bg-black/60 text-white border-0 rounded-full text-xs backdrop-blur-sm">GIF</Badge>
                       </div>
                     </div>
+                  )}
+                  {isGif && !p.mediaFileUrl && p.mediaUrl && (
+                    <div className="relative w-full overflow-hidden rounded-t-3xl" style={{ maxHeight: '360px' }}>
+                      <img src={p.mediaUrl} alt="" className="w-full object-cover" style={{ maxHeight: '360px' }} />
+                    </div>
+                  )}
+
+                  {/* ФОТО */}
+                  {isPhoto && p.mediaUrl && (
+                    <div className="w-full overflow-hidden rounded-t-3xl" style={{ maxHeight: '420px' }}>
+                      <img
+                        src={p.mediaUrl}
+                        alt=""
+                        className="w-full object-cover cursor-pointer"
+                        style={{ maxHeight: '420px' }}
+                        onClick={() => window.open(p.mediaFileUrl || p.mediaUrl!, '_blank')}
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    </div>
+                  )}
+
+                  {/* СТИКЕР */}
+                  {isSticker && p.mediaUrl && (
+                    <div className="flex justify-center pt-5 px-5">
+                      <img src={p.mediaUrl} alt="sticker" className="w-40 h-40 object-contain" />
+                    </div>
+                  )}
+
+                  {/* Голосовое */}
+                  {isVoice && p.mediaFileUrl && (
+                    <div className="px-6 pt-5">
+                      <div className="rounded-2xl bg-muted p-4 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-secondary/20 flex items-center justify-center shrink-0">
+                          <Icon name="Mic" size={18} className="text-secondary" />
+                        </div>
+                        <audio controls src={p.mediaFileUrl} className="flex-1 h-8" style={{ minWidth: 0 }} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Документ */}
+                  {isDoc && (
+                    <div className="px-6 pt-5">
+                      <a href={p.mediaFileUrl || '#'} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-3 rounded-2xl bg-muted p-4 hover:bg-accent/10 transition-colors">
+                        {p.mediaUrl
+                          ? <img src={p.mediaUrl} alt="" className="w-12 h-12 rounded-xl object-cover" />
+                          : <div className="w-12 h-12 rounded-xl bg-accent/15 flex items-center justify-center"><Icon name="FileText" size={22} className="text-accent" /></div>
+                        }
+                        <div>
+                          <div className="text-sm font-semibold">Документ</div>
+                          <div className="text-xs text-muted-foreground">Нажмите для скачивания</div>
+                        </div>
+                        <Icon name="Download" size={16} className="ml-auto text-muted-foreground" />
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Подпись и мета */}
+                  <div className="p-5">
+                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                      <Badge className="bg-secondary/20 text-secondary border-0 rounded-full text-xs gap-1">
+                        <Icon name="Send" size={11} /> Telegram
+                      </Badge>
+                      {p.mediaType && (
+                        <Badge className="bg-muted text-muted-foreground border-0 rounded-full text-xs gap-1">
+                          <Icon name={mediaBadgeIcon[p.mediaType] || 'File'} size={11} />
+                          {mediaBadgeLabel[p.mediaType] || p.mediaType}
+                        </Badge>
+                      )}
+                      <span className="text-xs text-muted-foreground">{p.channel} · {timeAgo(p.postedAt)}</span>
+                    </div>
+                    {lines.length > 0 && (
+                      <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">{lines.join('\n')}</p>
+                    )}
                   </div>
                 </Card>
               );
