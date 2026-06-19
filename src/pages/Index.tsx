@@ -63,12 +63,25 @@ const timeAgo = (iso: string) => {
 const Index = () => {
   const [active, setActive] = useState('feed');
   const [tgPosts, setTgPosts] = useState<{ id: number; channel: string; text: string; postedAt: string }[]>([]);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [pulse, setPulse] = useState(false);
 
-  useEffect(() => {
+  const loadPosts = () => {
     fetch(TELEGRAM_FEED_URL)
       .then((r) => r.json())
-      .then((d) => setTgPosts(d.posts || []))
+      .then((d) => {
+        setTgPosts(d.posts || []);
+        setLastUpdated(new Date());
+        setPulse(true);
+        setTimeout(() => setPulse(false), 600);
+      })
       .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadPosts();
+    const timer = setInterval(loadPosts, 60000);
+    return () => clearInterval(timer);
   }, []);
   const [chat, setChat] = useState([
     { from: 'bot', text: 'Привет! Я Юра — помощник для новичков. Спроси меня о чём угодно 🚀' },
@@ -164,7 +177,18 @@ const Index = () => {
       <main className="relative z-10 container pb-24 grid lg:grid-cols-3 gap-6 mt-6">
         {/* Feed */}
         <div className="lg:col-span-2 space-y-6">
-          <SectionHead icon="Newspaper" title="Лента событий" subtitle={tgPosts.length ? 'Прямой эфир из @moeGT22' : 'Новости из Telegram и анонсы'} />
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <SectionHead icon="Newspaper" title="Лента событий" subtitle={tgPosts.length ? 'Прямой эфир из @moeGT22' : 'Новости из Telegram и анонсы'} />
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`relative flex h-2.5 w-2.5`}>
+                <span className={`${pulse ? 'animate-ping' : 'animate-[ping_2s_ease-in-out_infinite]'} absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75`} />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-secondary" />
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {lastUpdated ? `обновлено ${timeAgo(lastUpdated.toISOString())}` : 'загрузка...'}
+              </span>
+            </div>
+          </div>
           {tgPosts.length > 0 ? (
             tgPosts.map((p, i) => {
               const lines = p.text.split('\n').filter(Boolean);
