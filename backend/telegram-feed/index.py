@@ -34,7 +34,7 @@ def _upload_to_cdn(token: str, file_id: str, s3, project_id: str) -> str:
     if not file_path:
         return ''
     tg_url = f'https://api.telegram.org/file/bot{token}/{file_path}'
-    with urllib.request.urlopen(urllib.request.Request(tg_url), timeout=30) as resp:
+    with urllib.request.urlopen(urllib.request.Request(tg_url), timeout=15) as resp:
         data = resp.read()
     ext = file_path.rsplit('.', 1)[-1] if '.' in file_path else 'bin'
     key = f'tgmedia/{file_id[:24]}.{ext}'
@@ -190,6 +190,36 @@ def _load_posts(conn, limit=30):
     return posts
 
 
+def _reupload_missing(conn, token: str, limit: int = 1) -> int:
+    """Перезаливает медиа для постов у которых media_file_id есть, но media_url пустой.
+    Обрабатывает limit штук за раз чтобы не упираться в таймаут функции."""
+    s3 = _s3_client()
+    project_id = os.environ['AWS_ACCESS_KEY_ID']
+    fixed = 0
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT message_id, media_type, media_file_id FROM telegram_posts "
+            "WHERE media_file_id IS NOT NULL AND (media_url IS NULL OR media_url = '') "
+            "ORDER BY posted_at DESC LIMIT %s",
+            (limit,),
+        )
+        rows = cur.fetchall()
+        for message_id, media_type, file_id in rows:
+            try:
+                cdn = _upload_to_cdn(token, file_id, s3, project_id)
+                if cdn:
+                    cur.execute(
+                        "UPDATE telegram_posts SET media_url = %s, media_file_url = %s WHERE message_id = %s",
+                        (cdn, cdn, message_id),
+                    )
+                    fixed += 1
+                    print(f'reupload ok: msg {message_id} -> {cdn}')
+            except Exception as e:
+                print(f'reupload error msg {message_id}: {e}')
+    conn.commit()
+    return fixed
+
+
 def handler(event: dict, context) -> dict:
     '''Читает посты из Telegram-канала, загружает медиа на CDN и отдаёт в ленту.'''
     method = event.get('httpMethod', 'GET')
@@ -197,8 +227,23 @@ def handler(event: dict, context) -> dict:
         return {'statusCode': 200, 'headers': _cors_headers(), 'body': ''}
 
     token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+    path = (event.get('path') or '/').rstrip('/')
     conn = psycopg2.connect(os.environ['DATABASE_URL'])
     try:
+        params = event.get('queryStringParameters') or {}
+
+        # POST ?action=reupload — перезалить медиа по одному посту за вызов
+        if method == 'POST' and params.get('action') == 'reupload':
+            fixed = 0
+            if token:
+                fixed = _reupload_missing(conn, token)
+            posts = _load_posts(conn)
+            return {
+                'statusCode': 200,
+                'headers': _cors_headers(),
+                'body': json.dumps({'fixed': fixed, 'posts': posts}, ensure_ascii=False),
+            }
+
         new_count = 0
         if token:
             try:
@@ -206,6 +251,11 @@ def handler(event: dict, context) -> dict:
                 new_count = _save_posts(conn, updates, token)
             except Exception as e:
                 print(f'telegram fetch error: {e}')
+            # При каждом GET-запросе доливаем медиа для одного поста без CDN
+            try:
+                _reupload_missing(conn, token)
+            except Exception as e:
+                print(f'bg reupload error: {e}')
         posts = _load_posts(conn)
     finally:
         conn.close()
