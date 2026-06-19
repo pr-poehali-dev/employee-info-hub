@@ -2,6 +2,7 @@ import json
 import os
 import urllib.request
 import psycopg2
+import boto3
 
 
 def _cors_headers():
@@ -20,77 +21,92 @@ def _fetch_updates(token: str):
         return json.loads(resp.read().decode('utf-8'))
 
 
-def _get_file_url(token: str, file_id: str) -> str:
-    """Получить прямую ссылку на файл через getFile."""
+def _get_tg_file_path(token: str, file_id: str) -> str:
     url = f'https://api.telegram.org/bot{token}/getFile?file_id={file_id}'
     with urllib.request.urlopen(urllib.request.Request(url), timeout=10) as resp:
         data = json.loads(resp.read().decode('utf-8'))
-    file_path = data.get('result', {}).get('file_path', '')
-    if file_path:
-        return f'https://api.telegram.org/file/bot{token}/{file_path}'
-    return ''
+    return data.get('result', {}).get('file_path', '')
 
 
-def _extract_media(post: dict, token: str) -> dict:
-    """
-    Возвращает dict с ключами:
-      media_type, media_file_id,
-      media_url   — превью/картинка для отображения,
-      media_file_url — прямая ссылка на сам файл (видео/gif/фото)
-    """
+def _upload_to_cdn(token: str, file_id: str, s3, project_id: str) -> str:
+    """Скачиваем файл из TG и кладём в S3, возвращаем CDN-ссылку."""
+    file_path = _get_tg_file_path(token, file_id)
+    if not file_path:
+        return ''
+    tg_url = f'https://api.telegram.org/file/bot{token}/{file_path}'
+    with urllib.request.urlopen(urllib.request.Request(tg_url), timeout=30) as resp:
+        data = resp.read()
+    ext = file_path.rsplit('.', 1)[-1] if '.' in file_path else 'bin'
+    key = f'tgmedia/{file_id[:24]}.{ext}'
+    content_types = {
+        'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
+        'mp4': 'video/mp4', 'webm': 'video/webm', 'gif': 'image/gif',
+        'ogg': 'audio/ogg', 'mp3': 'audio/mpeg', 'webp': 'image/webp',
+    }
+    ct = content_types.get(ext.lower(), 'application/octet-stream')
+    s3.put_object(Bucket='files', Key=key, Body=data, ContentType=ct, ACL='public-read')
+    return f'https://cdn.poehali.dev/projects/{project_id}/files/{key}'
+
+
+def _s3_client():
+    return boto3.client(
+        's3',
+        endpoint_url='https://bucket.poehali.dev',
+        aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+        aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
+    )
+
+
+def _extract_and_upload(post: dict, token: str, s3, project_id: str) -> dict:
+    """Скачивает медиа из Telegram и загружает на CDN. Возвращает dict с url."""
     result = {'media_type': None, 'media_file_id': None, 'media_url': None, 'media_file_url': None}
 
-    # Фото
     if post.get('photo'):
         photo = post['photo'][-1]
         file_id = photo['file_id']
-        url = _get_file_url(token, file_id) if token else ''
-        result.update({'media_type': 'photo', 'media_file_id': file_id, 'media_url': url, 'media_file_url': url})
+        cdn = _upload_to_cdn(token, file_id, s3, project_id)
+        result.update({'media_type': 'photo', 'media_file_id': file_id, 'media_url': cdn, 'media_file_url': cdn})
         return result
 
-    # Видео
     if post.get('video'):
         video = post['video']
         file_id = video['file_id']
-        file_url = _get_file_url(token, file_id) if token else ''
+        file_cdn = _upload_to_cdn(token, file_id, s3, project_id)
         thumb = video.get('thumbnail') or video.get('thumb')
-        thumb_url = _get_file_url(token, thumb['file_id']) if (thumb and token) else ''
-        result.update({'media_type': 'video', 'media_file_id': file_id, 'media_url': thumb_url, 'media_file_url': file_url})
+        thumb_cdn = _upload_to_cdn(token, thumb['file_id'], s3, project_id) if thumb else ''
+        result.update({'media_type': 'video', 'media_file_id': file_id, 'media_url': thumb_cdn, 'media_file_url': file_cdn})
         return result
 
-    # Анимация (GIF/MP4)
     if post.get('animation'):
         anim = post['animation']
         file_id = anim['file_id']
-        file_url = _get_file_url(token, file_id) if token else ''
+        file_cdn = _upload_to_cdn(token, file_id, s3, project_id)
         thumb = anim.get('thumbnail') or anim.get('thumb')
-        thumb_url = _get_file_url(token, thumb['file_id']) if (thumb and token) else ''
-        result.update({'media_type': 'animation', 'media_file_id': file_id, 'media_url': thumb_url or file_url, 'media_file_url': file_url})
+        thumb_cdn = _upload_to_cdn(token, thumb['file_id'], s3, project_id) if thumb else ''
+        result.update({'media_type': 'animation', 'media_file_id': file_id, 'media_url': thumb_cdn or file_cdn, 'media_file_url': file_cdn})
         return result
 
-    # Голосовое / аудио — только иконка, без превью
     if post.get('voice'):
         file_id = post['voice']['file_id']
-        file_url = _get_file_url(token, file_id) if token else ''
-        result.update({'media_type': 'voice', 'media_file_id': file_id, 'media_url': None, 'media_file_url': file_url})
+        file_cdn = _upload_to_cdn(token, file_id, s3, project_id)
+        result.update({'media_type': 'voice', 'media_file_id': file_id, 'media_url': None, 'media_file_url': file_cdn})
         return result
 
-    # Документ / стикер
     if post.get('document'):
         doc = post['document']
         file_id = doc['file_id']
-        file_url = _get_file_url(token, file_id) if token else ''
+        file_cdn = _upload_to_cdn(token, file_id, s3, project_id)
         thumb = doc.get('thumbnail') or doc.get('thumb')
-        thumb_url = _get_file_url(token, thumb['file_id']) if (thumb and token) else ''
-        result.update({'media_type': 'document', 'media_file_id': file_id, 'media_url': thumb_url, 'media_file_url': file_url})
+        thumb_cdn = _upload_to_cdn(token, thumb['file_id'], s3, project_id) if thumb else ''
+        result.update({'media_type': 'document', 'media_file_id': file_id, 'media_url': thumb_cdn, 'media_file_url': file_cdn})
         return result
 
     if post.get('sticker'):
         sticker = post['sticker']
         file_id = sticker['file_id']
         thumb = sticker.get('thumbnail') or sticker.get('thumb')
-        thumb_url = _get_file_url(token, thumb['file_id']) if (thumb and token) else ''
-        result.update({'media_type': 'sticker', 'media_file_id': file_id, 'media_url': thumb_url, 'media_file_url': None})
+        thumb_cdn = _upload_to_cdn(token, thumb['file_id'], s3, project_id) if thumb else ''
+        result.update({'media_type': 'sticker', 'media_file_id': file_id, 'media_url': thumb_cdn, 'media_file_url': None})
         return result
 
     return result
@@ -98,6 +114,9 @@ def _extract_media(post: dict, token: str) -> dict:
 
 def _save_posts(conn, updates, token: str):
     saved = 0
+    s3 = _s3_client()
+    project_id = os.environ['AWS_ACCESS_KEY_ID']
+
     with conn.cursor() as cur:
         for upd in updates.get('result', []):
             post = upd.get('channel_post')
@@ -110,13 +129,18 @@ def _save_posts(conn, updates, token: str):
             posted_at = post.get('date')
             media_group_id = post.get('media_group_id')
 
+            # Уже залито на CDN — пропускаем повторную загрузку
+            cur.execute("SELECT media_url FROM telegram_posts WHERE message_id = %s", (message_id,))
+            existing = cur.fetchone()
+            if existing and existing[0] and 'cdn.poehali.dev' in existing[0]:
+                continue
+
             media = {}
             try:
-                media = _extract_media(post, token)
+                media = _extract_and_upload(post, token, s3, project_id)
             except Exception as e:
-                print(f'media extract error msg {message_id}: {e}')
+                print(f'media upload error msg {message_id}: {e}')
 
-            # Пропускаем только совсем пустые посты
             if not text and not media.get('media_type'):
                 continue
 
@@ -167,7 +191,7 @@ def _load_posts(conn, limit=30):
 
 
 def handler(event: dict, context) -> dict:
-    '''Читает все посты из Telegram-канала: текст, фото, видео, GIF, документы.'''
+    '''Читает посты из Telegram-канала, загружает медиа на CDN и отдаёт в ленту.'''
     method = event.get('httpMethod', 'GET')
     if method == 'OPTIONS':
         return {'statusCode': 200, 'headers': _cors_headers(), 'body': ''}

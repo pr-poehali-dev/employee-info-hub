@@ -234,7 +234,10 @@ const Index = () => {
               Новости из Telegram, дни рождения коллег, мероприятия и умный помощник для новичков — собрали важное на одной странице.
             </p>
             <div className="flex flex-wrap gap-3 mt-8">
-              <Button size="lg" className="rounded-full h-12 px-7 text-base font-semibold hover-lift">
+              <Button size="lg" className="rounded-full h-12 px-7 text-base font-semibold hover-lift" onClick={() => {
+                setActive('feed');
+                setTimeout(() => document.getElementById('feed-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+              }}>
                 <Icon name="Compass" size={18} className="mr-2" /> Открыть ленту
               </Button>
               <Button size="lg" variant="outline" className="rounded-full h-12 px-7 text-base font-semibold border-2 hover-lift" onClick={() => setActive('helper')}>
@@ -266,7 +269,7 @@ const Index = () => {
       {/* Main grid */}
       <main className="relative z-10 container pb-24 grid lg:grid-cols-3 gap-6 mt-6">
         {/* Feed */}
-        <div className="lg:col-span-2 space-y-6">
+        <div id="feed-section" className="lg:col-span-2 space-y-6">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <SectionHead icon="Newspaper" title="Лента событий" subtitle={tgPosts.length ? 'Прямой эфир из @moeGT22' : 'Новости из Telegram и анонсы'} />
             <div className="flex items-center gap-2 mt-1">
