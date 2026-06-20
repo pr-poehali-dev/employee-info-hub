@@ -54,7 +54,9 @@ const TELEGRAM_FEED_URL = 'https://functions.poehali.dev/cfb59cf0-eb70-481c-ad5f
 const EMPLOYEES_URL = 'https://functions.poehali.dev/a1ee0a1b-ecf4-451d-a47d-e6f321fa88ec';
 const BIRTHDAY_GREET_URL = 'https://functions.poehali.dev/de8d8849-4828-4b2a-a26c-d70e62353206';
 
-type Employee = { id: number; name: string; role: string; birthday: string; tgUsername: string; greetedYear: number | null; photoUrl: string; email: string; joinedAt: string | null; daysInCompany: number | null };
+type Employee = { id: number; name: string; role: string; birthday: string; tgUsername: string; greetedYear: number | null; photoUrl: string; email: string; joinedAt: string | null; daysInCompany: number | null; department: string };
+
+const DEPARTMENTS = ['HRD','CFO','CDO','CMO','COO','CTO','CLO','CCO','CPO','CSO','CIO','Другое'];
 type TgPost = { id: number; channel: string; text: string; postedAt: string; mediaType: string | null; mediaUrl: string | null; mediaFileUrl: string | null; mediaGroupId: string | null };
 
 const initials = (name: string) => name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
@@ -100,7 +102,8 @@ const Index = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [empLoading, setEmpLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newEmp, setNewEmp] = useState({ name: '', role: '', birthday: '', tgUsername: '', email: '', joinedAt: '' });
+  const [activeDept, setActiveDept] = useState('Все');
+  const [newEmp, setNewEmp] = useState({ name: '', role: '', birthday: '', tgUsername: '', email: '', joinedAt: '', department: '' });
   const [newEmpPhoto, setNewEmpPhoto] = useState<string>('');
   const [greetStatus, setGreetStatus] = useState<string | null>(null);
   const [greetLoading, setGreetLoading] = useState(false);
@@ -142,7 +145,7 @@ const Index = () => {
     }
     loadEmployees();
     setShowAddForm(false);
-    setNewEmp({ name: '', role: '', birthday: '', tgUsername: '', email: '', joinedAt: '' });
+    setNewEmp({ name: '', role: '', birthday: '', tgUsername: '', email: '', joinedAt: '', department: '' });
     setNewEmpPhoto('');
   };
 
@@ -457,6 +460,26 @@ const Index = () => {
               </Button>
             </div>
 
+            {/* Вкладки дирекций */}
+            {(() => {
+              const depts = ['Все', ...Array.from(new Set(employees.map((e) => e.department).filter(Boolean)))];
+              return (
+                <div className="flex gap-2 flex-wrap mb-4">
+                  {depts.map((d) => (
+                    <button key={d} onClick={() => setActiveDept(d)}
+                      className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all border ${activeDept === d ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground hover:text-foreground hover:border-primary/40'}`}>
+                      {d}
+                      {d !== 'Все' && (
+                        <span className="ml-1.5 text-xs opacity-70">
+                          {employees.filter((e) => e.department === d).length}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+
             {showAddForm && (
               <Card className="p-5 rounded-3xl border-primary/30 bg-primary/5 mb-4 animate-fade-up">
                 <div className="flex items-start gap-4 mb-4">
@@ -486,6 +509,14 @@ const Index = () => {
                       <label className="text-xs text-muted-foreground pl-1">Пришёл в компанию</label>
                       <Input type="date" value={newEmp.joinedAt} onChange={(e) => setNewEmp((p) => ({ ...p, joinedAt: e.target.value }))} className="rounded-2xl" />
                     </div>
+                    <div className="flex flex-col gap-1 sm:col-span-2">
+                      <label className="text-xs text-muted-foreground pl-1">Дирекция</label>
+                      <select value={newEmp.department} onChange={(e) => setNewEmp((p) => ({ ...p, department: e.target.value }))}
+                        className="rounded-2xl border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                        <option value="">— Выберите дирекцию —</option>
+                        {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    </div>
                   </div>
                 </div>
                 <Button className="rounded-full w-full" onClick={addEmployee} disabled={!newEmp.name || !newEmp.birthday}>
@@ -506,7 +537,7 @@ const Index = () => {
                   </Card>
                 ))
               ) : (
-                employees.map((m) => (
+                employees.filter((m) => activeDept === 'Все' || m.department === activeDept).map((m) => (
                   <Card key={m.id} className="rounded-3xl border-border hover-lift bg-card overflow-hidden group">
                     {/* Верхняя часть с фото */}
                     <div className="relative">
@@ -548,6 +579,7 @@ const Index = () => {
                     <div className="p-4">
                       <div className="font-display font-semibold truncate">{m.name}</div>
                       {m.role && <div className="text-sm text-muted-foreground mt-0.5">{m.role}</div>}
+                      {m.department && <Badge className="mt-1.5 bg-primary/10 text-primary border-0 rounded-full text-xs">{m.department}</Badge>}
                       <div className="mt-3 space-y-1.5">
                         {m.email && (
                           <a href={`mailto:${m.email}`} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">

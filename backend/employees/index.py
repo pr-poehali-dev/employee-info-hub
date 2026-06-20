@@ -75,7 +75,7 @@ def handler(event: dict, context) -> dict:
         if method == 'GET':
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT id, name, role, birthday, tg_username, greeted_year, photo_url, email, joined_at "
+                    "SELECT id, name, role, birthday, tg_username, greeted_year, photo_url, email, joined_at, department "
                     "FROM employees ORDER BY name"
                 )
                 rows = cur.fetchall()
@@ -91,6 +91,7 @@ def handler(event: dict, context) -> dict:
                     'email': r[7] or '',
                     'joinedAt': joined_iso,
                     'daysInCompany': _days_in_company(joined_iso) if joined_iso else None,
+                    'department': r[9] or '',
                 })
             return {'statusCode': 200, 'headers': _cors(), 'body': json.dumps({'employees': employees}, ensure_ascii=False)}
 
@@ -103,13 +104,14 @@ def handler(event: dict, context) -> dict:
             tg = body.get('tgUsername', '').strip()
             email = body.get('email', '').strip()
             joined_at = body.get('joinedAt', '').strip() or None
+            department = body.get('department', '').strip() or None
             if not name or not birthday:
                 return {'statusCode': 400, 'headers': _cors(), 'body': json.dumps({'error': 'name и birthday обязательны'})}
             with conn.cursor() as cur:
                 cur.execute(
-                    "INSERT INTO employees (name, role, birthday, tg_username, email, joined_at) "
-                    "VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
-                    (name, role or None, birthday, tg or None, email or None, joined_at),
+                    "INSERT INTO employees (name, role, birthday, tg_username, email, joined_at, department) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                    (name, role or None, birthday, tg or None, email or None, joined_at, department),
                 )
                 new_id = cur.fetchone()[0]
             conn.commit()
@@ -123,7 +125,7 @@ def handler(event: dict, context) -> dict:
                 return {'statusCode': 400, 'headers': _cors(), 'body': json.dumps({'error': 'нужен id'})}
             fields = []
             values = []
-            for col, key in [('name', 'name'), ('role', 'role'), ('tg_username', 'tgUsername'), ('email', 'email'), ('joined_at', 'joinedAt'), ('birthday', 'birthday')]:
+            for col, key in [('name', 'name'), ('role', 'role'), ('tg_username', 'tgUsername'), ('email', 'email'), ('joined_at', 'joinedAt'), ('birthday', 'birthday'), ('department', 'department')]:
                 if key in body:
                     fields.append(f'{col} = %s')
                     values.append(body[key] or None)
