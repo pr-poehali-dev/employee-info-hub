@@ -572,13 +572,19 @@ const Index = () => {
                           r.readAsDataURL(f);
                         }} />
                       </label>
-                      {/* Бейдж дней в компании */}
-                      {m.daysInCompany !== null && (
-                        <div className="absolute top-2 right-2 bg-card/90 backdrop-blur-sm rounded-xl px-2.5 py-1.5 text-center shadow-sm">
-                          <div className="font-display font-bold text-sm text-primary leading-none">{m.daysInCompany}</div>
-                          <div className="text-[9px] text-muted-foreground leading-none mt-0.5">дней</div>
-                        </div>
-                      )}
+                      {/* Бейдж стажа */}
+                      {m.daysInCompany !== null && (() => {
+                        const days = m.daysInCompany!;
+                        const years = Math.floor(days / 365);
+                        const label = years >= 1 ? `${years}` : `${days}`;
+                        const unit = years >= 1 ? (years === 1 ? 'год' : years < 5 ? 'года' : 'лет') : 'дней';
+                        return (
+                          <div className="absolute top-2 right-2 bg-card/90 backdrop-blur-sm rounded-xl px-2.5 py-1.5 text-center shadow-sm">
+                            <div className="font-display font-bold text-sm text-primary leading-none">{label}</div>
+                            <div className="text-[9px] text-muted-foreground leading-none mt-0.5">{unit}</div>
+                          </div>
+                        );
+                      })()}
                       <button
                         onClick={() => deleteEmployee(m.id)}
                         className="absolute top-2 left-2 w-7 h-7 rounded-xl bg-card/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
