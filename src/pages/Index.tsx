@@ -575,6 +575,11 @@ const Index = () => {
                       {m.role && <div className="text-sm text-muted-foreground mt-0.5">{m.role}</div>}
                       {m.department && <Badge className="mt-1.5 bg-primary/10 text-primary border-0 rounded-full text-xs">{m.department}</Badge>}
                       <div className="mt-3 space-y-1.5">
+                        {m.department && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Icon name="Building2" size={12} className="shrink-0" /><span>{m.department}</span>
+                          </div>
+                        )}
                         {m.email && (
                           <a href={`mailto:${m.email}`} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
                             <Icon name="Mail" size={12} className="shrink-0" /><span className="truncate">{m.email}</span>
