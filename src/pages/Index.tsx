@@ -621,7 +621,15 @@ const Index = () => {
                         {m.joinedAt && (
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Icon name="CalendarCheck" size={12} className="shrink-0" />
-                            <span>в компании с {new Date(m.joinedAt + 'T00:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                            <span>
+                              в компании с {new Date(m.joinedAt + 'T00:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                              {m.daysInCompany !== null && (() => {
+                                const years = Math.floor(m.daysInCompany! / 365);
+                                const unit = years >= 1 ? (years === 1 ? 'год' : years < 5 ? 'года' : 'лет') : 'дней';
+                                const val = years >= 1 ? years : m.daysInCompany;
+                                return <span className="ml-1 font-medium text-primary">· {val} {unit}</span>;
+                              })()}
+                            </span>
                           </div>
                         )}
                       </div>
