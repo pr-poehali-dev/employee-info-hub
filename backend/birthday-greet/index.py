@@ -12,6 +12,22 @@ GREETINGS = [
     "🚀 {name}, с днём рождения от всей команды! Пусть этот год будет самым продуктивным и радостным.",
 ]
 
+def _years_label(years: int) -> str:
+    if years % 100 in (11, 12, 13, 14):
+        return f'{years} лет'
+    if years % 10 == 1:
+        return f'{years} год'
+    if years % 10 in (2, 3, 4):
+        return f'{years} года'
+    return f'{years} лет'
+
+ANNIVERSARY_MESSAGES = [
+    "🌿 {name} — {years_label} с нами в команде GreenTeam! Спасибо за каждый день, за вклад и за энергию. Вы — часть нашей истории!",
+    "⭐ {years_label} в команде — это {name}! Ценим, гордимся и желаем ещё много общих побед впереди!",
+    "🚀 Сегодня {name} отмечает {years_label} в GreenTeam! Спасибо, что идёте с нами — вперёд и выше!",
+    "💚 {years_label} вместе! {name}, ты — часть нашей команды и нашей силы. Спасибо за всё!",
+]
+
 
 def _cors():
     return {
@@ -47,8 +63,10 @@ def handler(event: dict, context) -> dict:
     conn = psycopg2.connect(os.environ['DATABASE_URL'])
     sent = []
     skipped = []
+    import hashlib
 
     try:
+        # --- Дни рождения ---
         with conn.cursor() as cur:
             cur.execute(
                 "SELECT id, name, birthday, greeted_year FROM employees "
@@ -61,25 +79,49 @@ def handler(event: dict, context) -> dict:
             if greeted_year == current_year:
                 skipped.append(name)
                 continue
-
-            import hashlib
             idx = int(hashlib.md5(f'{name}{current_year}'.encode()).hexdigest(), 16) % len(GREETINGS)
             text = GREETINGS[idx].format(name=name)
-
             ok = False
             if token:
                 try:
                     ok = _send_tg(token, channel, text)
                 except Exception as e:
                     print(f'tg send error for {name}: {e}')
-
             with conn.cursor() as cur:
-                cur.execute(
-                    "UPDATE employees SET greeted_year = %s WHERE id = %s",
-                    (current_year, emp_id),
-                )
+                cur.execute("UPDATE employees SET greeted_year = %s WHERE id = %s", (current_year, emp_id))
             conn.commit()
-            sent.append({'name': name, 'tg_sent': ok})
+            sent.append({'name': name, 'tg_sent': ok, 'type': 'birthday'})
+
+        # --- Годовщины работы ---
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, name, joined_at, anniversary_greeted_year FROM employees "
+                "WHERE joined_at IS NOT NULL "
+                "AND EXTRACT(MONTH FROM joined_at) = %s AND EXTRACT(DAY FROM joined_at) = %s",
+                (today.month, today.day),
+            )
+            ann_rows = cur.fetchall()
+
+        for emp_id, name, joined_at, ann_greeted_year in ann_rows:
+            years = current_year - joined_at.year
+            if years < 1:
+                continue
+            if ann_greeted_year == current_year:
+                skipped.append(f'{name} (годовщина)')
+                continue
+            years_label = _years_label(years)
+            idx = int(hashlib.md5(f'{name}_ann_{current_year}'.encode()).hexdigest(), 16) % len(ANNIVERSARY_MESSAGES)
+            text = ANNIVERSARY_MESSAGES[idx].format(name=name, years_label=years_label)
+            ok = False
+            if token:
+                try:
+                    ok = _send_tg(token, channel, text)
+                except Exception as e:
+                    print(f'tg anniversary error for {name}: {e}')
+            with conn.cursor() as cur:
+                cur.execute("UPDATE employees SET anniversary_greeted_year = %s WHERE id = %s", (current_year, emp_id))
+            conn.commit()
+            sent.append({'name': name, 'tg_sent': ok, 'type': 'anniversary', 'years': years})
 
     finally:
         conn.close()

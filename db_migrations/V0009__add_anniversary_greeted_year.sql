@@ -1,0 +1,1 @@
+ALTER TABLE t_p76025019_employee_info_hub.employees ADD COLUMN IF NOT EXISTS anniversary_greeted_year integer NULL;
