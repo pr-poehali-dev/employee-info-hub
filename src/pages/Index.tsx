@@ -461,24 +461,18 @@ const Index = () => {
             </div>
 
             {/* Вкладки дирекций */}
-            {(() => {
-              const depts = ['Все', ...Array.from(new Set(employees.map((e) => e.department).filter(Boolean)))];
-              return (
-                <div className="flex gap-2 flex-wrap mb-4">
-                  {depts.map((d) => (
-                    <button key={d} onClick={() => setActiveDept(d)}
-                      className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all border ${activeDept === d ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground hover:text-foreground hover:border-primary/40'}`}>
-                      {d}
-                      {d !== 'Все' && (
-                        <span className="ml-1.5 text-xs opacity-70">
-                          {employees.filter((e) => e.department === d).length}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              );
-            })()}
+            <div className="flex gap-2 flex-wrap mb-4">
+              {['Все', ...DEPARTMENTS].map((d) => {
+                const count = d === 'Все' ? employees.length : employees.filter((e) => e.department === d).length;
+                return (
+                  <button key={d} onClick={() => setActiveDept(d)}
+                    className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all border ${activeDept === d ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground hover:text-foreground hover:border-primary/40'}`}>
+                    {d}
+                    <span className={`ml-1.5 text-xs ${activeDept === d ? 'opacity-80' : 'opacity-50'}`}>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
 
             {showAddForm && (
               <Card className="p-5 rounded-3xl border-primary/30 bg-primary/5 mb-4 animate-fade-up">
