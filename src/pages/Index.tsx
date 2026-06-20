@@ -56,7 +56,7 @@ const BIRTHDAY_GREET_URL = 'https://functions.poehali.dev/de8d8849-4828-4b2a-a26
 
 type Employee = { id: number; name: string; role: string; birthday: string; tgUsername: string; greetedYear: number | null; photoUrl: string; email: string; joinedAt: string | null; daysInCompany: number | null; department: string };
 
-const DEPARTMENTS = ['HRD','CFO','CDO','CMO','COO','CTO','CLO','CCO','CPO','CSO','CIO','Другое'];
+const DEPARTMENTS = ['HRD','CFO','ITD','PRD','Исполнительная дирекция','Производственная дирекция','Дирекция по логистике','CEO','Дирекция по закупкам','Дирекция клиентского сервиса','Дирекция по правовым вопросам','Другое'];
 type TgPost = { id: number; channel: string; text: string; postedAt: string; mediaType: string | null; mediaUrl: string | null; mediaFileUrl: string | null; mediaGroupId: string | null };
 
 const initials = (name: string) => name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
