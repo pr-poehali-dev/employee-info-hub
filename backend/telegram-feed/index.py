@@ -244,18 +244,7 @@ def handler(event: dict, context) -> dict:
                 'body': json.dumps({'fixed': fixed, 'posts': posts}, ensure_ascii=False),
             }
 
-        new_count = 0
-        if token:
-            try:
-                updates = _fetch_updates(token)
-                new_count = _save_posts(conn, updates, token)
-            except Exception as e:
-                print(f'telegram fetch error: {e}')
-            # При каждом GET-запросе доливаем медиа для одного поста без CDN
-            try:
-                _reupload_missing(conn, token)
-            except Exception as e:
-                print(f'bg reupload error: {e}')
+        # GET — только читаем из базы, быстро
         posts = _load_posts(conn)
     finally:
         conn.close()
@@ -263,5 +252,5 @@ def handler(event: dict, context) -> dict:
     return {
         'statusCode': 200,
         'headers': _cors_headers(),
-        'body': json.dumps({'posts': posts, 'newCount': new_count}, ensure_ascii=False),
+        'body': json.dumps({'posts': posts, 'newCount': 0}, ensure_ascii=False),
     }
