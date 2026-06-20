@@ -103,6 +103,7 @@ const Index = () => {
   const [empLoading, setEmpLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [activeDept, setActiveDept] = useState('Все');
+  const [empSearch, setEmpSearch] = useState('');
   const [newEmp, setNewEmp] = useState({ name: '', role: '', birthday: '', tgUsername: '', email: '', joinedAt: '', department: '' });
   const [newEmpPhoto, setNewEmpPhoto] = useState<string>('');
   const [greetStatus, setGreetStatus] = useState<string | null>(null);
@@ -460,6 +461,17 @@ const Index = () => {
               </Button>
             </div>
 
+            {/* Поиск */}
+            <div className="relative mb-4">
+              <Icon name="Search" size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input value={empSearch} onChange={(e) => setEmpSearch(e.target.value)} placeholder="Поиск по имени или должности..." className="rounded-full pl-9 bg-muted border-0" />
+              {empSearch && (
+                <button onClick={() => setEmpSearch('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  <Icon name="X" size={14} />
+                </button>
+              )}
+            </div>
+
             {/* Вкладки дирекций */}
             <div className="flex gap-2 flex-wrap mb-4">
               {['Все', ...DEPARTMENTS].map((d) => {
@@ -531,7 +543,12 @@ const Index = () => {
                   </Card>
                 ))
               ) : (
-                employees.filter((m) => activeDept === 'Все' || m.department === activeDept).map((m) => (
+                employees.filter((m) => {
+                  const matchDept = activeDept === 'Все' || m.department === activeDept;
+                  const q = empSearch.toLowerCase();
+                  const matchSearch = !q || m.name.toLowerCase().includes(q) || (m.role || '').toLowerCase().includes(q);
+                  return matchDept && matchSearch;
+                }).map((m) => (
                   <Card key={m.id} className="rounded-3xl border-border hover-lift bg-card overflow-hidden group">
                     {/* Верхняя часть с фото */}
                     <div className="relative">
