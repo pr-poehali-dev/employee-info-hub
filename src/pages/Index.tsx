@@ -703,6 +703,84 @@ const Index = () => {
             </a>
           </Card>
 
+          {/* Onboarding */}
+          <Card className="p-6 rounded-3xl border-border bg-card">
+            <SectionHead icon="Rocket" title="Новичку" subtitle="Всё для быстрого старта" small />
+            <div className="space-y-3">
+              {/* Первые шаги */}
+              <div className="rounded-2xl bg-primary/8 p-4">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <span className="text-base">🚀</span>
+                  <span className="text-sm font-semibold">Первые шаги</span>
+                </div>
+                <ol className="space-y-1.5">
+                  {[
+                    'Напиши /start боту @green_team_2_0_bot',
+                    'Познакомься с командой в разделе «Команда»',
+                    'Загляни в «Сервисы» — там все инструменты',
+                    'Подпишись на корпоративный Telegram-канал',
+                    'Заполни свой профиль сотрудника',
+                  ].map((step, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-foreground/80">
+                      <span className="shrink-0 w-4 h-4 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[10px] font-bold mt-0.5">{i + 1}</span>
+                      {step}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              {/* Инструменты */}
+              <div className="rounded-2xl bg-muted/60 p-4">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <span className="text-base">🛠</span>
+                  <span className="text-sm font-semibold">Инструменты команды</span>
+                </div>
+                <div className="space-y-1.5">
+                  {[
+                    { icon: 'Send', label: 'Telegram', desc: 'основной канал общения' },
+                    { icon: 'FileText', label: 'Notion', desc: 'база знаний и регламенты' },
+                    { icon: 'Mail', label: 'Корп. почта', desc: 'официальная переписка' },
+                    { icon: 'Bot', label: '@green_team_2_0_bot', desc: 'помощник и онбординг' },
+                  ].map((t) => (
+                    <div key={t.label} className="flex items-center gap-2 text-xs">
+                      <Icon name={t.icon} size={13} className="text-secondary shrink-0" />
+                      <span className="font-medium">{t.label}</span>
+                      <span className="text-muted-foreground">— {t.desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ценности */}
+              <div className="rounded-2xl bg-accent/8 p-4">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <span className="text-base">💚</span>
+                  <span className="text-sm font-semibold">Ценности команды</span>
+                </div>
+                <div className="space-y-1.5">
+                  {[
+                    ['🌿', 'Экологичность', 'думаем о людях и планете'],
+                    ['🤝', 'Честность', 'открытость во всём'],
+                    ['🚀', 'Развитие', 'учимся и растём вместе'],
+                    ['💪', 'Результат', 'доводим до конца'],
+                    ['❤️', 'Забота', 'о коллегах и клиентах'],
+                  ].map(([emoji, name, desc]) => (
+                    <div key={name} className="flex items-center gap-2 text-xs">
+                      <span>{emoji}</span>
+                      <span className="font-medium">{name}</span>
+                      <span className="text-muted-foreground">— {desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <a href="https://t.me/green_team_2_0_bot" target="_blank" rel="noreferrer"
+                className="flex items-center justify-center gap-2 text-xs font-medium bg-secondary/15 text-secondary rounded-full px-4 py-2.5 hover:bg-secondary/25 transition-colors">
+                <Icon name="Send" size={13} /> Открыть бота в Telegram
+              </a>
+            </div>
+          </Card>
+
           {/* FAQ */}
           <Card className="p-6 rounded-3xl border-border bg-card">
             <SectionHead icon="CircleHelp" title="Частые вопросы" small />
